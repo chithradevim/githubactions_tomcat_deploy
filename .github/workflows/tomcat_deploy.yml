@@ -1,36 +1,56 @@
-# This is a basic workflow to help you get started with Actions
+name: Java CI with Maven
 
-name: CI
-
-# Controls when the workflow will run
+env:
+  STACK: java
+  CONTINUE_ON_ERROR: false
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  TOMCAT_HOST: 3.134.247.4
+  ARTIFACT_PATH: target/*war
+  DESTINATION_PATH: /opt/apache-tomcat-9.0.56/webapps/springboot.war  
+  
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
+
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
-
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
-
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+    - name: 'Checkout repository on branch: ${{ github.REF }}'
+      uses: actions/checkout@v1
+      continue-on-error: ${{ env.CONTINUE_ON_ERROR }}
+      with:
+        ref: ${{ github.REF }}
+        fetch-depth: 0
+        
+    - name: set up JDK 1.8
+      id: setup_jdk
+      if: ${{ env.STACK == 'java' }}
+      uses: actions/setup-java@v1
+      continue-on-error: ${{ env.CONTINUE_ON_ERROR }}
+      with:
+        java-version: '1.8'
+        
+    - name: Build with Maven
+      run: mvn clean package --file pom.xml
+      
+#     - name: SonarQube Scan
+#       run: mvn sonar:sonar -Dsonar.host.url=${{ env.SONAR_HOST_URL }} -Dsonar.login=${{ env.SONAR_TOKEN }}
+#     - uses: sonarsource/sonarqube-scan-action@master 
+#       with:
+#         args: >
+#           -Dsonar.projectKey=hello-springboot
+#           -Dsonar.sources=src/
+          
+    - name: Upload repo to remote server
+      env:
+           SSH_AUTH_SOCK: /tmp/ssh_agent.sock    
+      run: |
+        ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+        ssh-add - <<< "${{ secrets.SSH_KEY }}"
+        scp -o StrictHostKeyChecking=no ${{ env.ARTIFACT_PATH }} ${{ secrets.TOMCAT_USER }}@${{ env.TOMCAT_HOST }}:${{ env.DESTINATION_PATH }}
