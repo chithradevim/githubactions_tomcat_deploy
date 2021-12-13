@@ -5,10 +5,9 @@ env:
   CONTINUE_ON_ERROR: false
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-  TOMCAT_HOST: 3.134.247.4
+  TOMCAT_HOST: 18.188.17.1
   ARTIFACT_PATH: target/*war
-  DESTINATION_PATH: /opt/apache-tomcat-9.0.56/webapps/springboot.war  
-  
+  DESTINATION_PATH: /opt/apache-tomcat-8.5.73/webapps/springboot.war   
 on:
   push:
     branches: [ master ]
@@ -38,15 +37,23 @@ jobs:
         
     - name: Build with Maven
       run: mvn clean package --file pom.xml
-      
-#     - name: SonarQube Scan
-#       run: mvn sonar:sonar -Dsonar.host.url=${{ env.SONAR_HOST_URL }} -Dsonar.login=${{ env.SONAR_TOKEN }}
-#     - uses: sonarsource/sonarqube-scan-action@master 
-#       with:
-#         args: >
-#           -Dsonar.projectKey=hello-springboot
-#           -Dsonar.sources=src/
-          
+#     - name: Publish Artifact 
+#       uses: actions/checkout@v1
+#     - name: Publish artifact on GitHub Packages
+#       run: mvn -B clean deploy -DskipTests
+#       env:
+#           GITHUB_TOKEN: ${{ secrets.TOKEN_GITPACKAGES }}      
+    - name: SonarQube Scan
+      run: mvn sonar:sonar -Dsonar.host.url=${{ env.SONAR_HOST_URL }} -Dsonar.login=${{ env.SONAR_TOKEN }}
+    - uses: sonarsource/sonarqube-scan-action@master 
+      with:
+        args: >
+          -Dsonar.projectKey=hello-springboot
+          -Dsonar.sources=src/
+    - name: Publish package
+      run: mvn --batch-mode deploy
+      env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN_GITPACKAGES }}      
     - name: Upload repo to remote server
       env:
            SSH_AUTH_SOCK: /tmp/ssh_agent.sock    
